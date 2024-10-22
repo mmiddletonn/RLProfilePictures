@@ -45,7 +45,7 @@ namespace {
     }
 
     std::string nameAndId(const RLProfilePictures::Pri& p) {
-        return p.name + "|" + p.uid.GetIdString();
+        return p.name + "|" + p.uid;
     }
 } // namespace
 
@@ -182,8 +182,8 @@ void RLProfilePictures::getSortedIds(ActorWrapper caller) {
 }
 
 bool RLProfilePictures::sortPris(Pri a, Pri b) {
-    std::string id_a = a.uid.GetIdString();
-    std::string id_b = b.uid.GetIdString();
+    std::string id_a = a.uid;
+    std::string id_b = b.uid;
 
     if (a.isBot) id_a = "Bot_" + a.name;
     if (b.isBot) id_b = "Bot_" + b.name;
@@ -267,7 +267,8 @@ void RLProfilePictures::RecordScoreboardComparison(ActorWrapper gameEvent, void*
     }
 }
 
-std::shared_ptr<ImageWrapper> RLProfilePictures::GetImageForPlayer(const std::string& uid) {
+std::shared_ptr<ImageWrapper> RLProfilePictures::GetImageForPlayer(const RLProfilePictures::Pri pri) {
+        std::string uid = pri.uid;
     {
         std::lock_guard<std::mutex> lock(imageCacheMutex);
         auto it = imageCache.find(uid);
@@ -278,9 +279,9 @@ std::shared_ptr<ImageWrapper> RLProfilePictures::GetImageForPlayer(const std::st
 
     {
         std::lock_guard<std::mutex> lock(downloadQueueMutex);
-        if (queuedDownloads.find(uid) == queuedDownloads.end()) {
-            downloadQueue.push(uid);
-            queuedDownloads.insert(uid);
+        if (queuedDownloads.find(pri) == queuedDownloads.end()) {
+            downloadQueue.push(pri);
+            queuedDownloads.insert(pri);
             downloadCV.notify_one();
         }
     }
@@ -289,7 +290,7 @@ std::shared_ptr<ImageWrapper> RLProfilePictures::GetImageForPlayer(const std::st
 
 void RLProfilePictures::DownloadThreadFunction() {
     while (true) {
-        std::string uid;
+		RLProfilePictures::Pri pri;
         {
             std::unique_lock<std::mutex> lock(downloadQueueMutex);
             downloadCV.wait(lock, [this] {
@@ -299,40 +300,26 @@ void RLProfilePictures::DownloadThreadFunction() {
                 break;
             }
             if (!downloadQueue.empty()) {
-                uid = downloadQueue.front();
+                pri = downloadQueue.front();
                 downloadQueue.pop();
             }
         }
-        if (!uid.empty()) {
-            DownloadAndCacheImage(uid);
+        if (!pri.name.empty()) {
+            DownloadAndCacheImage(pri);
             {
                 std::lock_guard<std::mutex> lock(downloadQueueMutex);
-                queuedDownloads.erase(uid);
+                queuedDownloads.erase(pri);
             }
         }
     }
 }
 
-void RLProfilePictures::DownloadAndCacheImage(const std::string& uid) {
+void RLProfilePictures::DownloadAndCacheImage(RLProfilePictures::Pri pri) {
 
-	// Find the position of the first '|' character
-    size_t firstPipe = uid.find('|');
-
-    // Find the position of the second '|' character
-    size_t secondPipe = uid.find('|', firstPipe + 1);
-
-    // Extract the substring before the first '|' character to get the platform
-    std::string platform = uid.substr(0, firstPipe);
-
-    // Extract the substring between the first and second '|' characters to get the id
-    std::string id = uid.substr(firstPipe + 1, secondPipe - firstPipe - 1);
-
-    LOG("[RLProfilePictures] Downloading image for UID: {}", uid);
-    LOG("[RLProfilePictures] Downloading image for ID: {}", id);
-	LOG("[RLProfilePictures] Downloading image for platform: {}", platform);
+	LOG("[RLProfilePictures] Downloading image for {} | {} | {}", pri.name, pri.platform, pri.id);
 
     // Sanitize UID for file name
-    std::string sanitizedUid = uid;
+    std::string sanitizedUid = pri.uid;
     std::replace(sanitizedUid.begin(), sanitizedUid.end(), '|', '_'); // Replace '|' with '_'
 
     // Construct the path to the image file
@@ -342,7 +329,7 @@ void RLProfilePictures::DownloadAndCacheImage(const std::string& uid) {
     time_t currentTime = std::time(nullptr);
 
 	//initialize the image url
-	std::string imageUrl = getImageUrl(platform, id, settings, gameWrapper.get());
+	std::string imageUrl = getImageUrl(pri.platform, pri.id, settings, gameWrapper.get());
 
     // Download the image data
     HINTERNET hInternet = InternetOpen(L"RLProfilePictures", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
@@ -356,8 +343,6 @@ void RLProfilePictures::DownloadAndCacheImage(const std::string& uid) {
         InternetCloseHandle(hInternet);
         return;
     }
-
-    LOG("[RLProfilePictures] Downloading image for UID: {}", uid);
 
     std::stringstream imageStream;
     char buffer[4096];
@@ -380,21 +365,21 @@ void RLProfilePictures::DownloadAndCacheImage(const std::string& uid) {
         // Update cache timestamp
         {
             std::lock_guard<std::mutex> lock(imageCacheMutex);
-            cacheTimestamps[uid] = currentTime;
+            cacheTimestamps[pri.uid] = currentTime;
             SaveCache();
         }
 
         // Now schedule the creation of ImageWrapper on the main thread
-        gameWrapper->Execute([this, uid, imagePath](GameWrapper* gw) {
+        gameWrapper->Execute([this, pri, imagePath](GameWrapper* gw) {
             auto image = std::make_shared<ImageWrapper>(imagePath.string(), false, false);
             if (!image->IsLoadedForCanvas()) {
                 image->LoadForCanvas();
             }
             {
                 std::lock_guard<std::mutex> lock(imageCacheMutex);
-                imageCache[uid] = image;
+                imageCache[pri.uid] = image;
             }
-            });
+        });
     }
 }
 
@@ -545,7 +530,7 @@ void RLProfilePictures::RenderPlatformLogos(CanvasWrapper canvas) {
         canvas.SetPosition(drawPos);
 
         // Use the UID to get the appropriate image
-        std::shared_ptr<ImageWrapper> image = GetImageForPlayer(pri.uid.GetIdString());
+        std::shared_ptr<ImageWrapper> image = GetImageForPlayer(pri);
         if (image && image->IsLoadedForCanvas()) {
             canvas.DrawTexture(image.get(), 100.0f / 48.0f * sbPosInfo.profileScale); // Scale images accordingly
         }
@@ -555,27 +540,54 @@ void RLProfilePictures::RenderPlatformLogos(CanvasWrapper canvas) {
 
 void RLProfilePictures::ClearCache() {
     try {
-        // Remove all files in the cache directory
+        // Step 1: Ensure the cache directory is valid
+        // Get the paths to the relevant directories
+        std::filesystem::path cachePath = cacheDirectory;
+        std::filesystem::path rlProfilePicturesDir = cachePath.parent_path();   // Parent directory of the cache
+        std::filesystem::path dataDir = rlProfilePicturesDir.parent_path();     // Parent directory of 'RLProfilePictures'
+        std::filesystem::path bakkesmodDir = dataDir.parent_path();             // Parent directory of 'data'
+
+        // Validate that the cache directory is within the expected directory structure
+        if (rlProfilePicturesDir.filename() != "RLProfilePictures") {
+            LOG("[RLProfilePictures] Cache directory is not within 'RLProfilePictures'. Aborting cache clear.");
+            return; // Abort if not under 'RLProfilePictures'
+        }
+        if (dataDir.filename() != "data") {
+            LOG("[RLProfilePictures] Cache directory is not within 'data'. Aborting cache clear.");
+            return; // Abort if not under 'data'
+        }
+        if (bakkesmodDir.filename() != "bakkesmod") {
+            LOG("[RLProfilePictures] Cache directory is not within 'bakkesmod'. Aborting cache clear.");
+            return; // Abort if not under 'bakkesmod'
+        }
+
+        // Step 2: Remove all files in the cache directory
         std::filesystem::remove_all(cacheDirectory);
-        // Recreate the cache directory
+
+        // Step 3: Recreate the cache directory
         std::filesystem::create_directories(cacheDirectory);
-        // Clear in-memory caches
+
+        // Step 4: Clear in-memory caches
         {
             std::lock_guard<std::mutex> lock(imageCacheMutex);
             imageCache.clear();
             {
                 std::lock_guard<std::mutex> lock(downloadQueueMutex);
                 queuedDownloads.clear();
-                std::queue<std::string> emptyQueue;
+                std::queue<RLProfilePictures::Pri> emptyQueue;
                 std::swap(downloadQueue, emptyQueue);
             }
             cacheTimestamps.clear();
         }
-        // Save empty cache
+
+        // Step 5: Save empty cache
         SaveCache();
+
+        // Log the successful clearing of the cache
         LOG("[RLProfilePictures] Cache cleared");
     }
     catch (const std::exception& e) {
+        // Log any exceptions that occur during the process
         LOG("[RLProfilePictures] Exception in ClearCache: {}", e.what());
     }
 }

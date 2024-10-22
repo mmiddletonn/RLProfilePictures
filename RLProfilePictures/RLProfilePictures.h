@@ -31,28 +31,46 @@ class RLProfilePictures : public BakkesMod::Plugin::BakkesModPlugin,
     public BakkesMod::Plugin::PluginWindow {
 public:
     struct Pri {
-        UniqueIDWrapper uid;
+		std::string uid;
+        std::string id;
         int score{};
         unsigned char team{};
         bool isBot{};
         std::string name;
-        OnlinePlatform platform;
+        std::string platform;
         bool ghost_player;
         bool isSpectator;
+
+        // Default constructor
         Pri() {}
+
+        // Constructor using PriWrapper
         Pri(PriWrapper p) {
             if (!p) { return; }
-            uid = p.GetUniqueIdWrapper();
+            uid = p.GetUniqueIdWrapper().GetIdString();
             score = p.GetMatchScore();
             team = p.GetTeamNum2();
             isBot = p.GetbBot();
             name = p.GetPlayerName().ToString();
             platform = p.GetPlatform();
             isSpectator = p.IsSpectator();
-            // BenTheDan Implementation
             ghost_player = team > 1;
+
+            size_t firstPipe = uid.find('|');
+            size_t secondPipe = uid.find('|', firstPipe + 1);
+            platform = uid.substr(0, firstPipe);
+
+            // Extract the substring between the first and second '|' characters to get the id
+            id = uid.substr(firstPipe + 1, secondPipe - firstPipe - 1);
+
+        }
+
+        // Overload the < operator
+        bool operator<(const Pri& other) const {
+            return name < other.name;
         }
     };
+
 
     struct ScoreboardObj
     {
@@ -158,11 +176,11 @@ private:
     const int CACHE_EXPIRATION_SECONDS = 7 * 24 * 60 * 60; // One week
 
     // Function to get the image for a specific player based on their UID
-    std::shared_ptr<ImageWrapper> GetImageForPlayer(const std::string& uid);
+    std::shared_ptr<ImageWrapper> GetImageForPlayer(const RLProfilePictures::Pri);
 
     // For managing background image downloads
-    std::queue<std::string> downloadQueue;
-    std::set<std::string> queuedDownloads;
+    std::queue<RLProfilePictures::Pri> downloadQueue;
+    std::set<RLProfilePictures::Pri> queuedDownloads;
     std::mutex downloadQueueMutex;
     std::condition_variable downloadCV;
     bool stopDownloadThread = false;
@@ -170,7 +188,7 @@ private:
     void DownloadThreadFunction();
 
     // Function to download and cache the image
-    void DownloadAndCacheImage(const std::string& uid);
+    void DownloadAndCacheImage(const RLProfilePictures::Pri pri);
 
     // Function to clear cache when player leaves the game
     void ClearCache();

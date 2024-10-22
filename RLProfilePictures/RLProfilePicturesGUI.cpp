@@ -79,14 +79,25 @@ std::string OpenFileDialog() {
 
 void RLProfilePictures::RenderSettings() {
     ImGui::Text("");
+
     ImGui::Text("This plugin allows you to see all players' profile pictures on the scoreboard in-game.");
-    ImGui::Text("Special thanks to SoulDaMeep and BenTheDan");
+    ImGui::Text("Special thanks to SoulDaMeep and BenTheDan.");
     ImGui::Text("This would not have been possible without their work on PlatformDisplay and InGameRank.");
+
+    ImGui::Text("");
+    ImGui::Separator();
     ImGui::Text("");
 
-    ImGui::Separator();
+    ImGui::Text("This plugin requires a central server and CDN to function, which are not free.");
+    ImGui::Text("If you appreciate the plugin and want to support its continued availability, donations are greatly appreciated!");
 
-	ImGui::Text("Set your own profile picture:");
+    if (ImGui::Button("Donate")) {
+        system("start https://www.paypal.com/paypalme/hamterrl");
+    }
+
+    ImGui::Text("");
+    ImGui::Separator();
+	ImGui::Text("");
 
     static std::string filePath = "";
 
@@ -98,7 +109,7 @@ void RLProfilePictures::RenderSettings() {
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f); // Make the button appear visually disabled
     }
 
-    if (ImGui::Button("Browse...")) {
+    if (ImGui::Button("Set your own profile picture")) {
         std::string selectedFile = OpenFileDialog();
         if (!selectedFile.empty()) {
             filePath = selectedFile; // Update the file path if a file was selected
@@ -114,8 +125,9 @@ void RLProfilePictures::RenderSettings() {
     }
 
     ImGui::Text("");
-
     ImGui::Separator();
+	ImGui::Text("");
+
     ImGui::Text("Render profile pictures for the following platforms:");
 
     // Checkboxes for platforms
@@ -147,6 +159,7 @@ void RLProfilePictures::RenderSettings() {
 
     ImGui::Text("");
     ImGui::Separator();
+	ImGui::Text("");
 
     ImGui::Text("Credits:");
 	ImGui::BulletText("hamter_rl | Development");

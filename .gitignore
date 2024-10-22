@@ -4,9 +4,10 @@
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
 # BakkesMod build directory
-plugins/
-# vcpkg packages
+build/
 vcpkg_installed/
+
+.vs/
 
 # User-specific files
 *.rsuser
