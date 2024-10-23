@@ -48,16 +48,20 @@ inline SbPosInfo getSbPosInfo(Vector2F canvasSize, float uiScale, bool mutators,
 
     SbPosInfo output;
     output.profileScale = 0.48f;
-    float tier_X = -offsets.scoreboardLeft - (offsets.imageWidth - 100.0f) * output.profileScale + 30.5f;
-    tier_X = center.X + tier_X * scale * uiScale;
-    float tier_Y_blue = -offsets.blueBottom + (6 * (4 - numBlues)) - offsets.bannerDistance * numBlues + 9.0f;
-    tier_Y_blue = center.Y + tier_Y_blue * scale * uiScale;
-    float tier_Y_orange = offsets.orangeTop;
-    tier_Y_orange = center.Y + tier_Y_orange * scale * uiScale;
 
-    // Adjust positions based on some extra tweaks
-    output.blueLeaderPos = { tier_X, tier_Y_blue + 10 * scale * uiScale };
-    output.orangeLeaderPos = { tier_X, tier_Y_orange + 9 * scale * uiScale };
+    float ScoreboardPosX = -offsets.scoreboardLeft - (offsets.imageWidth - 100.0f) * output.profileScale + 30.5f;
+    ScoreboardPosX = center.X + ScoreboardPosX * scale * uiScale;
+
+    // Avatar positioning calculations
+    float BlueAvatarPos = -offsets.blueBottom + (6 * (4 - numBlues)) - offsets.bannerDistance * numBlues + 9.0f;
+    BlueAvatarPos = center.Y + BlueAvatarPos * scale * uiScale;
+
+    float OrangeAvatarPos = offsets.orangeTop;
+    OrangeAvatarPos = center.Y + OrangeAvatarPos * scale * uiScale;
+
+    // Final output positions without extra tweaks
+    output.blueLeaderPos = { ScoreboardPosX, BlueAvatarPos };
+    output.orangeLeaderPos = { ScoreboardPosX, OrangeAvatarPos };
     output.playerSeparation = offsets.bannerDistance * scale * uiScale;
     output.profileScale *= scale * uiScale;
 
