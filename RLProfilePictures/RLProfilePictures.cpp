@@ -127,6 +127,8 @@ void RLProfilePictures::onLoad()
 
     // Start the download thread
     downloadThread = std::thread(&RLProfilePictures::DownloadThreadFunction, this);
+
+	offsetsThread = std::thread(&RLProfilePictures::OffsetsThreadFunction, this);
 }
 
 void RLProfilePictures::onUnload()
@@ -314,6 +316,61 @@ void RLProfilePictures::DownloadThreadFunction() {
     }
 }
 
+void RLProfilePictures::OffsetsThreadFunction() {
+
+	//initialize the image url
+	std::string url = "https://rlprofilepictures.matt-middleton.com/offsets";
+
+	// Download the json data
+	HINTERNET hInternet = InternetOpen(L"RLProfilePictures", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+	if (hInternet == NULL) {
+		LOG("[RLProfilePictures] Failed to open internet connection.");
+		return;
+	}
+	HINTERNET hConnect = InternetOpenUrlA(hInternet, url.c_str(), NULL, 0, INTERNET_FLAG_RELOAD, 0);
+	if (hConnect == NULL) {
+		LOG("[RLProfilePictures] Failed to open URL: {}", url);
+		InternetCloseHandle(hInternet);
+		return;
+	}
+
+	std::stringstream offsetsStream;
+	char buffer[4096];
+	DWORD bytesRead;
+
+	while (InternetReadFile(hConnect, buffer, sizeof(buffer), &bytesRead) && bytesRead > 0) {
+		offsetsStream.write(buffer, bytesRead);
+	}
+
+	InternetCloseHandle(hConnect);
+	InternetCloseHandle(hInternet);
+
+	std::string offsetsData = offsetsStream.str();
+	if (!offsetsData.empty()) {
+
+		LOG("[RLProfilePictures] Downloaded scoreboard offsets: {}", offsetsData);
+
+		nlohmann::json json = nlohmann::json::parse(offsetsData);
+
+		offsets.scoreboardLeft = json["scoreboardLeft"];
+		offsets.blueBottom = json["blueBottom"];
+		offsets.orangeTop = json["orangeTop"];
+		offsets.bannerDistance = json["bannerDistance"];
+		offsets.imageWidth = json["imageWidth"];
+		offsets.imageHeight = json["imageHeight"];
+		offsets.centerX = json["centerX"];
+		offsets.centerY = json["centerY"];
+		offsets.scoreboardHeight = json["scoreboardHeight"];
+		offsets.scoreboardWidth = json["scoreboardWidth"];
+		offsets.imbalanceShift = json["imbalanceShift"];
+		offsets.mutatorSize = json["mutatorSize"];
+		offsets.skipTickShift = json["skipTickShift"];
+		offsets.yOffcenterOffset = json["yOffcenterOffset"];
+
+	}
+
+}
+
 void RLProfilePictures::DownloadAndCacheImage(RLProfilePictures::Pri pri) {
 
 	LOG("[RLProfilePictures] Downloading image for {} | {} | {}", pri.name, pri.platform, pri.id);
@@ -479,6 +536,7 @@ void RLProfilePictures::UpdatePlayerProfilePicture(std::shared_ptr<GameWrapper> 
 }
 
 void RLProfilePictures::RenderPlatformLogos(CanvasWrapper canvas) {
+
     if (!scoreBoardOpen) { return; }
     if (!gameWrapper->IsInOnlineGame()) { return; }
     ServerWrapper sw = gameWrapper->GetOnlineGame();
@@ -495,7 +553,7 @@ void RLProfilePictures::RenderPlatformLogos(CanvasWrapper canvas) {
         gameWrapper->GetDisplayScale() * gameWrapper->GetInterfaceScale(),
         /* mutators= */ mmrWrapper.GetCurrentPlaylist() == 34,
         computedInfo.bluePlayerCount,
-        computedInfo.orangePlayerCount);
+        computedInfo.orangePlayerCount, offsets);
 
     int blues = -1;
     int oranges = -1;

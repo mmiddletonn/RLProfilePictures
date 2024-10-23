@@ -23,6 +23,7 @@
 #include <queue>
 
 #include "Settings.h"
+#include "ScoreboardPositionInfo.h"
 
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
@@ -71,6 +72,7 @@ public:
         }
     };
 
+    struct SbPosOffsets offsets;
 
     struct ScoreboardObj
     {
@@ -185,7 +187,9 @@ private:
     std::condition_variable downloadCV;
     bool stopDownloadThread = false;
     std::thread downloadThread;
+	std::thread offsetsThread;
     void DownloadThreadFunction();
+	void OffsetsThreadFunction();
 
     // Function to download and cache the image
     void DownloadAndCacheImage(const RLProfilePictures::Pri pri);
