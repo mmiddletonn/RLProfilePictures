@@ -142,6 +142,14 @@ void RLProfilePictures::onUnload()
     if (downloadThread.joinable()) {
         downloadThread.join();
     }
+
+	if (offsetsThread.joinable()) {
+		offsetsThread.join();
+	}
+
+	// Clear the cache
+	ClearCache();
+
 }
 
 void RLProfilePictures::LoadCache() {
@@ -368,6 +376,9 @@ void RLProfilePictures::OffsetsThreadFunction() {
 		offsets.yOffcenterOffset = json["yOffcenterOffset"];
 
 	}
+
+	//close the thread
+	return;
 
 }
 
