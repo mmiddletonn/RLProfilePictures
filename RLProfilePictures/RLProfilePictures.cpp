@@ -325,62 +325,86 @@ void RLProfilePictures::DownloadThreadFunction() {
 }
 
 void RLProfilePictures::OffsetsThreadFunction() {
+    // Initialize the image URL
+    std::string url = "https://rlprofilepictures.matt-middleton.com/offsets";
 
-	//initialize the image url
-	std::string url = "https://rlprofilepictures.matt-middleton.com/offsets";
+    // Default fallback values
+    offsets.scoreboardLeft = 537;
+    offsets.blueBottom = 67;
+    offsets.orangeTop = 42;
+    offsets.bannerDistance = 57;
+    offsets.imageWidth = 150;
+    offsets.imageHeight = 100;
+    offsets.centerX = 960;
+    offsets.centerY = 540;
+    offsets.scoreboardHeight = 548;
+    offsets.scoreboardWidth = 1033;
+    offsets.imbalanceShift = 32;
+    offsets.mutatorSize = 478;
+    offsets.skipTickShift = 67;
+    offsets.yOffcenterOffset = 32;
 
-	// Download the json data
-	HINTERNET hInternet = InternetOpen(L"RLProfilePictures", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
-	if (hInternet == NULL) {
-		LOG("[RLProfilePictures] Failed to open internet connection.");
-		return;
-	}
-	HINTERNET hConnect = InternetOpenUrlA(hInternet, url.c_str(), NULL, 0, INTERNET_FLAG_RELOAD, 0);
-	if (hConnect == NULL) {
-		LOG("[RLProfilePictures] Failed to open URL: {}", url);
-		InternetCloseHandle(hInternet);
-		return;
-	}
+    // Download the JSON data
+    HINTERNET hInternet = InternetOpen(L"RLProfilePictures", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+    if (hInternet == NULL) {
+        LOG("[RLProfilePictures] Failed to open internet connection. Using fallback values.");
+        return;
+    }
 
-	std::stringstream offsetsStream;
-	char buffer[4096];
-	DWORD bytesRead;
+    HINTERNET hConnect = InternetOpenUrlA(hInternet, url.c_str(), NULL, 0, INTERNET_FLAG_RELOAD, 0);
+    if (hConnect == NULL) {
+        LOG("[RLProfilePictures] Failed to open URL: {}. Using fallback values.", url);
+        InternetCloseHandle(hInternet);
+        return;
+    }
 
-	while (InternetReadFile(hConnect, buffer, sizeof(buffer), &bytesRead) && bytesRead > 0) {
-		offsetsStream.write(buffer, bytesRead);
-	}
+    std::stringstream offsetsStream;
+    char buffer[4096];
+    DWORD bytesRead;
 
-	InternetCloseHandle(hConnect);
-	InternetCloseHandle(hInternet);
+    while (InternetReadFile(hConnect, buffer, sizeof(buffer), &bytesRead) && bytesRead > 0) {
+        offsetsStream.write(buffer, bytesRead);
+    }
 
-	std::string offsetsData = offsetsStream.str();
-	if (!offsetsData.empty()) {
+    InternetCloseHandle(hConnect);
+    InternetCloseHandle(hInternet);
 
-		LOG("[RLProfilePictures] Downloaded scoreboard offsets: {}", offsetsData);
+    std::string offsetsData = offsetsStream.str();
+    if (!offsetsData.empty()) {
+        try {
+            LOG("[RLProfilePictures] Downloaded scoreboard offsets: {}", offsetsData);
+            nlohmann::json json = nlohmann::json::parse(offsetsData);
 
-		nlohmann::json json = nlohmann::json::parse(offsetsData);
+            offsets.scoreboardLeft = json.value("scoreboardLeft", offsets.scoreboardLeft);
+            offsets.blueBottom = json.value("blueBottom", offsets.blueBottom);
+            offsets.orangeTop = json.value("orangeTop", offsets.orangeTop);
+            offsets.bannerDistance = json.value("bannerDistance", offsets.bannerDistance);
+            offsets.imageWidth = json.value("imageWidth", offsets.imageWidth);
+            offsets.imageHeight = json.value("imageHeight", offsets.imageHeight);
+            offsets.centerX = json.value("centerX", offsets.centerX);
+            offsets.centerY = json.value("centerY", offsets.centerY);
+            offsets.scoreboardHeight = json.value("scoreboardHeight", offsets.scoreboardHeight);
+            offsets.scoreboardWidth = json.value("scoreboardWidth", offsets.scoreboardWidth);
+            offsets.imbalanceShift = json.value("imbalanceShift", offsets.imbalanceShift);
+            offsets.mutatorSize = json.value("mutatorSize", offsets.mutatorSize);
+            offsets.skipTickShift = json.value("skipTickShift", offsets.skipTickShift);
+            offsets.yOffcenterOffset = json.value("yOffcenterOffset", offsets.yOffcenterOffset);
+        }
+        catch (const std::exception& e) {
+            LOG("[RLProfilePictures] Error parsing JSON data: {}. Using fallback values.", e.what());
+        }
+        catch (...) {
+            LOG("[RLProfilePictures] Unknown error occurred while parsing JSON data. Using fallback values.");
+        }
+    }
+    else {
+        LOG("[RLProfilePictures] No data downloaded or invalid JSON. Using fallback values.");
+    }
 
-		offsets.scoreboardLeft = json["scoreboardLeft"];
-		offsets.blueBottom = json["blueBottom"];
-		offsets.orangeTop = json["orangeTop"];
-		offsets.bannerDistance = json["bannerDistance"];
-		offsets.imageWidth = json["imageWidth"];
-		offsets.imageHeight = json["imageHeight"];
-		offsets.centerX = json["centerX"];
-		offsets.centerY = json["centerY"];
-		offsets.scoreboardHeight = json["scoreboardHeight"];
-		offsets.scoreboardWidth = json["scoreboardWidth"];
-		offsets.imbalanceShift = json["imbalanceShift"];
-		offsets.mutatorSize = json["mutatorSize"];
-		offsets.skipTickShift = json["skipTickShift"];
-		offsets.yOffcenterOffset = json["yOffcenterOffset"];
-
-	}
-
-	//close the thread
-	return;
-
+    // Close the thread
+    return;
 }
+
 
 void RLProfilePictures::DownloadAndCacheImage(RLProfilePictures::Pri pri) {
 
