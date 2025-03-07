@@ -519,7 +519,7 @@ void RLProfilePictures::UpdatePlayerProfilePicture(std::shared_ptr<GameWrapper> 
                 InternetCloseHandle(hSession);
                 return;
             }
-
+             
             // Prepare the file data to send
             std::ifstream file(imageFilePath, std::ios::binary);
             if (!file)
@@ -553,7 +553,10 @@ void RLProfilePictures::UpdatePlayerProfilePicture(std::shared_ptr<GameWrapper> 
 
             if (!result)
             {
-                LOG("HttpSendRequest failed");
+				DWORD dwError = GetLastError();
+
+				LOG("HttpSendRequest failed with error code {}", dwError);
+
                 return;
             }
             else
