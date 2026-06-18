@@ -1,1 +1,1 @@
-https://bakkesplugins.com/plugins/view/475
+PROJECT DISCONTINUED. #RIPBAKKESMOD
